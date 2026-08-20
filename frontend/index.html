@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tides and Currents App</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      padding: 40px;
+      max-width: 800px;
+      width: 100%;
+    }
+    
+    h1 {
+      color: #333;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    
+    .form-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+    }
+    
+    input[type="date"] {
+      flex: 1;
+      min-width: 200px;
+      padding: 12px 15px;
+      border: 2px solid #ddd;
+      border-radius: 5px;
+      font-size: 16px;
+      transition: border-color 0.3s;
+    }
+    
+    input[type="date"]:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    button {
+      padding: 12px 30px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    .loading {
+      display: none;
+      text-align: center;
+      color: #667eea;
+      font-weight: 600;
+      margin: 20px 0;
+    }
+    
+    .loading.show {
+      display: block;
+    }
+    
+    .error {
+      display: none;
+      background-color: #fee;
+      color: #c33;
+      padding: 15px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+      border-left: 4px solid #c33;
+    }
+    
+    .error.show {
+      display: block;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    
+    thead {
+      background-color: #f5f5f5;
+    }
+    
+    th {
+      padding: 15px;
+      text-align: left;
+      font-weight: 600;
+      color: #333;
+      border-bottom: 2px solid #ddd;
+    }
+    
+    td {
+      padding: 12px 15px;
+      border-bottom: 1px solid #eee;
+      color: #666;
+    }
+    
+    tbody tr:hover {
+      background-color: #f9f9f9;
+    }
+    
+    .no-data {
+      text-align: center;
+      color: #999;
+      padding: 30px;
+      font-style: italic;
+    }
+
+    .direction-flood {
+      color: #1b7a3c;
+      font-weight: 600;
+    }
+
+    .direction-ebb {
+      color: #c33;
+      font-weight: 600;
+    }
+
+    .direction-slack {
+      color: #888;
+      font-weight: 600;
+    }
+
+    .tide-high {
+      color: #1b7a3c;
+      font-weight: 600;
+    }
+
+    .tide-low {
+      color: #c33;
+      font-weight: 600;
+    }
+
+    .intensity-cubes {
+      display: inline-flex;
+      gap: 3px;
+      vertical-align: middle;
+    }
+
+    .intensity-cube {
+      width: 8px;
+      height: 12px;
+      border-radius: 2px;
+      background: #e3e3e3;
+    }
+
+    .intensity-cube.fill-flood {
+      background: #1b7a3c;
+    }
+
+    .intensity-cube.fill-ebb {
+      background: #c33;
+    }
+
+    .disclaimer {
+      margin-top: 15px;
+      background-color: #fff8e1;
+      color: #7a5c00;
+      padding: 12px 15px;
+      border-radius: 5px;
+      border-left: 4px solid #f0ad4e;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🌊 Tides and Currents</h1>
+    
+    <div class="form-group">
+      <input id="date" type="date" value="2026-08-20">
+      <input id="currentTime" type="time" value="08:00">
+      <button onclick="getTidesAndCurrents()">Get Tides &amp; Currents</button>
+    </div>
+    
+    <div id="error" class="error"></div>
+    <div id="loading" class="loading">Loading tide predictions...</div>
+
+    <h1 style="margin-bottom: 10px; text-align: left; font-size: 18px;">Tide Heights (The Battery)</h1>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Type</th>
+          <th>Height (ft)</th>
+        </tr>
+      </thead>
+      <tbody id="results">
+        <tr>
+          <td colspan="3" class="no-data">Select a date and time, then click "Get Tides &amp; Currents"</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h1 style="margin-top: 40px; margin-bottom: 10px; text-align: left; font-size: 18px;">Currents (Pier 66)</h1>
+
+    <div id="currentsError" class="error"></div>
+    <div id="currentsLoading" class="loading">Loading current predictions...</div>
+
+    <div class="disclaimer">
+      ⚠️ These current predictions are based on NOAA data and the Eldridge Tide and Pilot Book, not real-time observations. Actual river conditions can vary due to weather, freshwater runoff, and wind. Always check current river conditions on-site and double-check manually before making navigation decisions.
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Direction</th>
+          <th>Speed (kn)</th>
+          <th>Intensity</th>
+        </tr>
+      </thead>
+      <tbody id="currentsResults">
+        <tr>
+          <td colspan="4" class="no-data">Select a date and time, then click "Get Tides &amp; Currents"</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    function directionLabel(direction) {
+      if (direction === "Flood") return '<span class="direction-flood">▲ Flood</span>';
+      if (direction === "Ebb") return '<span class="direction-ebb">▼ Ebb</span>';
+      return '<span class="direction-slack">● Slack</span>';
+    }
+
+    function intensityLabel(direction, speed) {
+      if (direction === "Slack") return '-';
+      const fillClass = direction === "Flood" ? "fill-flood" : "fill-ebb";
+      const totalCubes = 10;
+      // scale against a 3.5 kn reference max and render filled cube segments
+      const maxSpeed = 3.5;
+      const filledCubes = Math.max(1, Math.min(totalCubes, Math.round((speed / maxSpeed) * totalCubes)));
+      const cubes = Array.from({ length: totalCubes }, (_, i) =>
+        `<span class="intensity-cube ${i < filledCubes ? fillClass : ''}"></span>`
+      ).join('');
+      return `<span class="intensity-cubes" title="${speed.toFixed(2)} kn">${cubes}</span>`;
+    }
+
+    function getTidesAndCurrents() {
+      getTides();
+      getCurrents();
+    }
+
+    async function getTides() {
+      const day = document.getElementById("date").value;
+      const errorDiv = document.getElementById("error");
+      const loadingDiv = document.getElementById("loading");
+      const resultsDiv = document.getElementById("results");
+      
+      if (!day) {
+        errorDiv.textContent = "Please select a date";
+        errorDiv.classList.add("show");
+        return;
+      }
+      
+      errorDiv.classList.remove("show");
+      loadingDiv.classList.add("show");
+      
+      try {
+        const response = await fetch(`/api/tides?day=${day}`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data.predictions || data.predictions.length === 0) {
+          resultsDiv.innerHTML = '<tr><td colspan="3" class="no-data">No tide predictions found for this date</td></tr>';
+        } else {
+          resultsDiv.innerHTML = data.predictions.map(tide => `
+            <tr>
+              <td>${new Date(tide.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+              <td>${tide.type === "H" ? '<span class="tide-high">▲ High</span>' : '<span class="tide-low">▼ Low</span>'}</td>
+              <td>${parseFloat(tide.v).toFixed(2)}</td>
+            </tr>
+          `).join("");
+        }
+      } catch (error) {
+        errorDiv.textContent = `Error: ${error.message}`;
+        errorDiv.classList.add("show");
+        resultsDiv.innerHTML = '<tr><td colspan="3" class="no-data">Failed to load tide data</td></tr>';
+      } finally {
+        loadingDiv.classList.remove("show");
+      }
+    }
+
+    async function getCurrents() {
+      const day = document.getElementById("date").value;
+      const startTime = document.getElementById("currentTime").value;
+      const errorDiv = document.getElementById("currentsError");
+      const loadingDiv = document.getElementById("currentsLoading");
+      const resultsDiv = document.getElementById("currentsResults");
+
+      if (!day || !startTime) {
+        errorDiv.textContent = "Please select a date and start time";
+        errorDiv.classList.add("show");
+        return;
+      }
+
+      errorDiv.classList.remove("show");
+      loadingDiv.classList.add("show");
+
+      try {
+        const response = await fetch(`/api/currents?day=${day}&start_time=${startTime}`);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        if (!data.predictions || data.predictions.length === 0) {
+          resultsDiv.innerHTML = '<tr><td colspan="4" class="no-data">No current predictions found</td></tr>';
+        } else {
+          resultsDiv.innerHTML = data.predictions.map(entry => `
+            <tr>
+              <td>${new Date(entry.time.replace(" ", "T")).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+              <td>${directionLabel(entry.direction)}</td>
+              <td>${entry.speed.toFixed(2)}</td>
+              <td>${intensityLabel(entry.direction, entry.speed)}</td>
+            </tr>
+          `).join("");
+        }
+      } catch (error) {
+        errorDiv.textContent = `Error: ${error.message}`;
+        errorDiv.classList.add("show");
+        resultsDiv.innerHTML = '<tr><td colspan="4" class="no-data">Failed to load current data</td></tr>';
+      } finally {
+        loadingDiv.classList.remove("show");
+      }
+    }
+  </script>
+</body>
+</html>

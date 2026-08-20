@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: tides-and-currents-app
+    runtime: python
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn main:app --app-dir backend --host 0.0.0.0 --port $PORT
