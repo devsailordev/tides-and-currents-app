@@ -171,6 +171,20 @@
       vertical-align: middle;
     }
 
+    .speed-intensity {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .selected-date-label {
+      margin-top: 18px;
+      margin-bottom: 8px;
+      color: #333;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
     .intensity-cube {
       width: 8px;
       height: 12px;
@@ -196,15 +210,211 @@
       font-size: 14px;
       line-height: 1.4;
     }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    .weather-cards {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .weather-card {
+      flex: 1;
+      min-width: 160px;
+      background: #f5f7ff;
+      border-radius: 8px;
+      padding: 15px;
+      text-align: center;
+    }
+
+    .weather-card img {
+      width: 50px;
+      height: 50px;
+      margin: 5px 0;
+    }
+
+    .weather-card .weather-period {
+      font-weight: 600;
+      color: #333;
+    }
+
+    .weather-card .weather-temp {
+      font-size: 20px;
+      font-weight: 700;
+      color: #667eea;
+    }
+
+    .weather-card .weather-desc {
+      font-size: 13px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    .weather-card .weather-wind {
+      font-size: 12px;
+      color: #888;
+      margin-top: 4px;
+    }
+
+    .hourly-weather-wrap {
+      overflow-x: auto;
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+      background: #f5f7ff;
+      border-radius: 8px;
+    }
+
+    .hourly-weather-table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+
+    .hourly-weather-table td {
+      text-align: center;
+      padding: 6px 8px;
+      min-width: 42px;
+      white-space: nowrap;
+      border-bottom: 1px solid #e5e9f7;
+    }
+
+    .hourly-weather-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .hourly-weather-table .hourly-time {
+      font-size: 11px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .hourly-weather-table .hourly-temp {
+      font-size: 15px;
+      font-weight: 700;
+      color: #333;
+      border-radius: 6px;
+    }
+
+    .hourly-weather-table .hourly-wind {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 10px;
+    }
+
+    .wind-arrow {
+      display: inline-block;
+      font-size: 13px;
+      line-height: 1;
+    }
+
+    .wind-calm {
+      background: #eef0f5;
+      color: #888;
+    }
+
+    .wind-light {
+      background: #e3f6e6;
+      color: #1b7a3c;
+    }
+
+    .wind-moderate {
+      background: #fff6d9;
+      color: #a67c00;
+    }
+
+    .wind-strong {
+      background: #ffe6d6;
+      color: #c56a1a;
+    }
+
+    .wind-severe {
+      background: #fde0e0;
+      color: #c33;
+    }
+
+    .hourly-weather-table .hourly-precip {
+      font-size: 11px;
+      color: #3a7ac2;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 10px;
+      }
+
+      .container {
+        padding: 20px 15px;
+      }
+
+      th, td {
+        padding: 10px 8px;
+        font-size: 14px;
+      }
+
+      .speed-intensity {
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .intensity-cube {
+        width: 5px;
+        height: 10px;
+      }
+
+      .intensity-cubes {
+        gap: 2px;
+      }
+
+      .hourly-weather-table td {
+        padding: 4px 5px;
+        min-width: 34px;
+      }
+
+      .hourly-weather-table .hourly-temp {
+        font-size: 13px;
+      }
+
+      .hourly-weather-table .hourly-wind {
+        font-size: 10px;
+        padding: 1px 4px;
+      }
+
+      .hourly-weather-table .hourly-time,
+      .hourly-weather-table .hourly-precip {
+        font-size: 10px;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>🌊 Tides and Currents</h1>
-    
+
+    <h1 style="margin-bottom: 10px; text-align: left; font-size: 18px;">Weather Forecast</h1>
+    <div id="weatherError" class="error"></div>
+    <div id="weatherLoading" class="loading">Loading weather forecast...</div>
+    <div id="weatherResults" class="weather-cards">
+      <div class="no-data">Select a date, then click "Get Tides &amp; Currents"</div>
+    </div>
+
+    <div id="hourlyWeatherError" class="error"></div>
+    <div id="hourlyWeatherLoading" class="loading">Loading hourly forecast...</div>
+    <div id="hourlyWeatherResults" class="hourly-weather-wrap">
+      <div class="no-data">Select a date, then click "Get Tides &amp; Currents"</div>
+    </div>
+
     <div class="form-group">
-      <input id="date" type="date" value="2026-08-20">
-      <input id="currentTime" type="time" value="08:00">
+      <input id="date" type="date" autocomplete="off">
+      <input id="currentTime" type="time" value="08:00" autocomplete="off">
       <button onclick="getTidesAndCurrents()">Get Tides &amp; Currents</button>
     </div>
     
@@ -213,20 +423,22 @@
 
     <h1 style="margin-bottom: 10px; text-align: left; font-size: 18px;">Tide Heights (The Battery)</h1>
 
-    <table>
-      <thead>
-        <tr>
-          <th>Time</th>
-          <th>Type</th>
-          <th>Height (ft)</th>
-        </tr>
-      </thead>
-      <tbody id="results">
-        <tr>
-          <td colspan="3" class="no-data">Select a date and time, then click "Get Tides &amp; Currents"</td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Type</th>
+            <th>Height (ft)</th>
+          </tr>
+        </thead>
+        <tbody id="results">
+          <tr>
+            <td colspan="3" class="no-data">Select a date and time, then click "Get Tides &amp; Currents"</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
     <h1 style="margin-top: 40px; margin-bottom: 10px; text-align: left; font-size: 18px;">Currents (Pier 66)</h1>
 
@@ -237,24 +449,51 @@
       ⚠️ These current predictions are based on NOAA data and the Eldridge Tide and Pilot Book, not real-time observations. Actual river conditions can vary due to weather, freshwater runoff, and wind. Always check current river conditions on-site and double-check manually before making navigation decisions.
     </div>
 
-    <table>
-      <thead>
-        <tr>
-          <th>Time</th>
-          <th>Direction</th>
-          <th>Speed (kn)</th>
-          <th>Intensity</th>
-        </tr>
-      </thead>
-      <tbody id="currentsResults">
-        <tr>
-          <td colspan="4" class="no-data">Select a date and time, then click "Get Tides &amp; Currents"</td>
-        </tr>
-      </tbody>
-    </table>
+    <div id="selectedDateLabel" class="selected-date-label"></div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Direction</th>
+            <th>Speed (kn)</th>
+          </tr>
+        </thead>
+        <tbody id="currentsResults">
+          <tr>
+            <td colspan="3" class="no-data">Select a date and time, then click "Get Tides &amp; Currents"</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <script>
+    function setDefaultDateAndTime() {
+      const dateInput = document.getElementById("date");
+      const currentTimeInput = document.getElementById("currentTime");
+      const now = new Date();
+      const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+        .toISOString()
+        .split("T")[0];
+      dateInput.value = localDate;
+      currentTimeInput.value = "08:00";
+      const selectedDateLabel = document.getElementById("selectedDateLabel");
+      selectedDateLabel.textContent = formatSelectedDateLabel(localDate);
+    }
+
+    function formatSelectedDateLabel(day) {
+      const [year, month, date] = day.split("-").map(Number);
+      const selectedDate = new Date(year, month - 1, date);
+      return selectedDate.toLocaleDateString([], {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+      });
+    }
+
     function directionLabel(direction) {
       if (direction === "Flood") return '<span class="direction-flood">▲ Flood</span>';
       if (direction === "Ebb") return '<span class="direction-ebb">▼ Ebb</span>';
@@ -262,9 +501,12 @@
     }
 
     function intensityLabel(direction, speed) {
-      if (direction === "Slack") return '-';
-      const fillClass = direction === "Flood" ? "fill-flood" : "fill-ebb";
       const totalCubes = 10;
+      if (direction === "Slack") {
+        const emptyCubes = Array.from({ length: totalCubes }, () => '<span class="intensity-cube"></span>').join('');
+        return `<span class="intensity-cubes" title="${speed.toFixed(2)} kn">${emptyCubes}</span>`;
+      }
+      const fillClass = direction === "Flood" ? "fill-flood" : "fill-ebb";
       // scale against a 3.5 kn reference max and render filled cube segments
       const maxSpeed = 3.5;
       const filledCubes = Math.max(1, Math.min(totalCubes, Math.round((speed / maxSpeed) * totalCubes)));
@@ -274,9 +516,160 @@
       return `<span class="intensity-cubes" title="${speed.toFixed(2)} kn">${cubes}</span>`;
     }
 
+    const WIND_DIRECTION_DEGREES = {
+      N: 0, NNE: 22.5, NE: 45, ENE: 67.5,
+      E: 90, ESE: 112.5, SE: 135, SSE: 157.5,
+      S: 180, SSW: 202.5, SW: 225, WSW: 247.5,
+      W: 270, WNW: 292.5, NW: 315, NNW: 337.5
+    };
+
+    // Wind direction (e.g. "NW") names where the wind blows FROM; rotate the
+    // arrow another 180deg so it visually points in the direction of travel.
+    function windArrow(windDirection) {
+      const degrees = WIND_DIRECTION_DEGREES[windDirection];
+      if (degrees === undefined) return '';
+      return `<span class="wind-arrow" style="transform: rotate(${degrees + 180}deg)">&#8593;</span>`;
+    }
+
+    function maxWindSpeedMph(windSpeed) {
+      const numbers = (windSpeed.match(/\d+/g) || []).map(Number);
+      return numbers.length ? Math.max(...numbers) : 0;
+    }
+
+    function windSpeedClass(windSpeed) {
+      const mph = maxWindSpeedMph(windSpeed);
+      if (mph < 5) return "wind-calm";
+      if (mph < 15) return "wind-light";
+      if (mph < 25) return "wind-moderate";
+      if (mph < 35) return "wind-strong";
+      return "wind-severe";
+    }
+
+    function windLabel(windSpeed, windDirection, windGust) {
+      const gustText = windGust ? ` (G ${maxWindSpeedMph(windGust)})` : "";
+      return `<span class="hourly-wind ${windSpeedClass(windSpeed)}">${windArrow(windDirection)} ${windSpeed}${gustText}</span>`;
+    }
+
+    // Quantizes to 5-degree steps (light pink -> dark red) so the color
+    // visibly changes every 5 degF, over a 35-105 degF range.
+    function tempBackgroundColor(temperature) {
+      const minTemp = 35;
+      const maxTemp = 105;
+      const bandTemp = Math.round(temperature / 5) * 5;
+      const ratio = Math.max(0, Math.min(1, (bandTemp - minTemp) / (maxTemp - minTemp)));
+      const lightStart = [255, 245, 240]; // #fff5f0
+      const darkEnd = [153, 0, 13]; // #99000d
+      const [r, g, b] = lightStart.map((channel, i) => Math.round(channel + (darkEnd[i] - channel) * ratio));
+      return { background: `rgb(${r}, ${g}, ${b})`, color: ratio > 0.55 ? "#fff" : "#333" };
+    }
+
     function getTidesAndCurrents() {
+      getWeather();
+      getWeatherHourly();
       getTides();
       getCurrents();
+    }
+
+    async function getWeather() {
+      const day = document.getElementById("date").value;
+      const errorDiv = document.getElementById("weatherError");
+      const loadingDiv = document.getElementById("weatherLoading");
+      const resultsDiv = document.getElementById("weatherResults");
+
+      if (!day) {
+        errorDiv.textContent = "Please select a date";
+        errorDiv.classList.add("show");
+        return;
+      }
+
+      errorDiv.classList.remove("show");
+      loadingDiv.classList.add("show");
+
+      try {
+        const response = await fetch(`/api/weather?day=${day}`);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (!data.periods || data.periods.length === 0) {
+          resultsDiv.innerHTML = '<div class="no-data">No weather forecast available for this date</div>';
+        } else {
+          resultsDiv.innerHTML = data.periods.map(period => `
+            <div class="weather-card">
+              <div class="weather-period">${period.name}</div>
+              <img src="${period.icon}" alt="${period.shortForecast}">
+              <div class="weather-temp">${period.temperature}&deg;${period.temperatureUnit}</div>
+              <div class="weather-desc">${period.shortForecast}</div>
+              <div class="weather-wind">${windLabel(period.windSpeed, period.windDirection)}</div>
+            </div>
+          `).join("");
+        }
+      } catch (error) {
+        errorDiv.textContent = `Error: ${error.message}`;
+        errorDiv.classList.add("show");
+        resultsDiv.innerHTML = '<div class="no-data">Failed to load weather data</div>';
+      } finally {
+        loadingDiv.classList.remove("show");
+      }
+    }
+
+    async function getWeatherHourly() {
+      const day = document.getElementById("date").value;
+      const errorDiv = document.getElementById("hourlyWeatherError");
+      const loadingDiv = document.getElementById("hourlyWeatherLoading");
+      const resultsDiv = document.getElementById("hourlyWeatherResults");
+
+      if (!day) {
+        errorDiv.textContent = "Please select a date";
+        errorDiv.classList.add("show");
+        return;
+      }
+
+      errorDiv.classList.remove("show");
+      loadingDiv.classList.add("show");
+
+      try {
+        const response = await fetch(`/api/weather/hourly?day=${day}`);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (!data.periods || data.periods.length === 0) {
+          resultsDiv.innerHTML = '<div class="no-data">No hourly forecast available for this date</div>';
+        } else {
+          const periods = data.periods;
+          const timeRow = periods.map(p => `<td class="hourly-time">${new Date(p.startTime).toLocaleTimeString([], { hour: '2-digit' })}</td>`).join("");
+          const tempRow = periods.map(p => {
+            const { background, color } = tempBackgroundColor(p.temperature);
+            return `<td class="hourly-temp" style="background-color: ${background}; color: ${color}">${p.temperature}&deg;</td>`;
+          }).join("");
+          const windRow = periods.map(p => `<td>${windLabel(p.windSpeed, p.windDirection, p.windGust)}</td>`).join("");
+          const precipRow = periods.map(p => `<td class="hourly-precip">${p.probabilityOfPrecipitation !== null && p.probabilityOfPrecipitation !== undefined ? `💧 ${p.probabilityOfPrecipitation}%` : ""}</td>`).join("");
+
+          resultsDiv.innerHTML = `
+            <table class="hourly-weather-table">
+              <tbody>
+                <tr>${timeRow}</tr>
+                <tr>${tempRow}</tr>
+                <tr>${windRow}</tr>
+                <tr>${precipRow}</tr>
+              </tbody>
+            </table>
+          `;
+        }
+      } catch (error) {
+        errorDiv.textContent = `Error: ${error.message}`;
+        errorDiv.classList.add("show");
+        resultsDiv.innerHTML = '<div class="no-data">Failed to load hourly weather data</div>';
+      } finally {
+        loadingDiv.classList.remove("show");
+      }
     }
 
     async function getTides() {
@@ -329,12 +722,15 @@
       const errorDiv = document.getElementById("currentsError");
       const loadingDiv = document.getElementById("currentsLoading");
       const resultsDiv = document.getElementById("currentsResults");
+      const selectedDateLabel = document.getElementById("selectedDateLabel");
 
       if (!day || !startTime) {
         errorDiv.textContent = "Please select a date and start time";
         errorDiv.classList.add("show");
         return;
       }
+
+      selectedDateLabel.textContent = formatSelectedDateLabel(day);
 
       errorDiv.classList.remove("show");
       loadingDiv.classList.add("show");
@@ -353,25 +749,39 @@
         }
 
         if (!data.predictions || data.predictions.length === 0) {
-          resultsDiv.innerHTML = '<tr><td colspan="4" class="no-data">No current predictions found</td></tr>';
+          resultsDiv.innerHTML = '<tr><td colspan="3" class="no-data">No current predictions found</td></tr>';
         } else {
           resultsDiv.innerHTML = data.predictions.map(entry => `
             <tr>
-              <td>${new Date(entry.time.replace(" ", "T")).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+              <td>${new Date(entry.time.replace(" ", "T")).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
               <td>${directionLabel(entry.direction)}</td>
-              <td>${entry.speed.toFixed(2)}</td>
-              <td>${intensityLabel(entry.direction, entry.speed)}</td>
+              <td><span class="speed-intensity">${entry.speed.toFixed(2)} ${intensityLabel(entry.direction, entry.speed)}</span></td>
             </tr>
           `).join("");
         }
       } catch (error) {
         errorDiv.textContent = `Error: ${error.message}`;
         errorDiv.classList.add("show");
-        resultsDiv.innerHTML = '<tr><td colspan="4" class="no-data">Failed to load current data</td></tr>';
+        resultsDiv.innerHTML = '<tr><td colspan="3" class="no-data">Failed to load current data</td></tr>';
       } finally {
         loadingDiv.classList.remove("show");
       }
     }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      setDefaultDateAndTime();
+      const dateInput = document.getElementById("date");
+      const selectedDateLabel = document.getElementById("selectedDateLabel");
+      dateInput.addEventListener("change", () => {
+        if (dateInput.value) {
+          selectedDateLabel.textContent = formatSelectedDateLabel(dateInput.value);
+        }
+      });
+      getWeather();
+      getWeatherHourly();
+    });
+    window.addEventListener("pageshow", setDefaultDateAndTime);
+    setDefaultDateAndTime();
   </script>
 </body>
 </html>

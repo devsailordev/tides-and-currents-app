@@ -1,12 +1,28 @@
 # backend/main.py
 import math
+import re
 from datetime import date, datetime, timedelta
 import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pathlib import Path
 
 app = FastAPI()
+
+
+class NoCacheStaticFiles(StaticFiles):
+    """Serve static files without conditional caching so root always reflects latest frontend."""
+
+    def is_not_modified(self, *args, **kwargs) -> bool:  # noqa: ANN002, ANN003
+        return False
+
+    def file_response(self, *args, **kwargs):  # noqa: ANN002, ANN003
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
 
 # Bound how much data a single request can generate/fetch, since this is a
 # public, unauthenticated API with no per-user quotas.
@@ -23,6 +39,108 @@ CURRENT_STATIONS = {
         "after_low": [-2.8, -2.6, -1.9, -1.0, 0.3, 1.3],
     }
 }
+
+# weather.gov requires a descriptive User-Agent and rejects requests without one.
+WEATHER_HEADERS = {"User-Agent": "tides-and-currents-app (github.com/tides-and-currents-app)"}
+WEATHER_LAT = 40.75281480397881
+WEATHER_LON = -74.0151581463272
+
+# The points -> forecast URL mapping never changes for a fixed lat/lon, so cache it.
+_weather_forecast_urls_cache: dict[str, str] | None = None
+
+
+async def fetch_weather_forecast_urls() -> dict[str, str]:
+    global _weather_forecast_urls_cache
+    if _weather_forecast_urls_cache:
+        return _weather_forecast_urls_cache
+
+    try:
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT, headers=WEATHER_HEADERS, follow_redirects=True) as client:
+            response = await client.get(f"https://api.weather.gov/points/{WEATHER_LAT},{WEATHER_LON}")
+            response.raise_for_status()
+            data = response.json()
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail="Unable to reach weather data provider") from exc
+
+    properties = data.get("properties", {})
+    forecast_url = properties.get("forecast")
+    forecast_hourly_url = properties.get("forecastHourly")
+    forecast_grid_data_url = properties.get("forecastGridData")
+    if not forecast_url or not forecast_hourly_url:
+        raise HTTPException(status_code=502, detail="Weather data provider returned no forecast URL")
+
+    _weather_forecast_urls_cache = {
+        "forecast": forecast_url,
+        "forecastHourly": forecast_hourly_url,
+        "forecastGridData": forecast_grid_data_url,
+    }
+    return _weather_forecast_urls_cache
+
+
+_ISO8601_DURATION_RE = re.compile(
+    r"P(?:(?P<days>\d+)D)?(?:T(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?(?:(?P<seconds>\d+)S)?)?"
+)
+
+
+def _parse_iso8601_duration(duration: str) -> timedelta:
+    match = _ISO8601_DURATION_RE.fullmatch(duration)
+    if not match:
+        return timedelta()
+    parts = {key: int(value) for key, value in match.groupdict().items() if value}
+    return timedelta(
+        days=parts.get("days", 0),
+        hours=parts.get("hours", 0),
+        minutes=parts.get("minutes", 0),
+        seconds=parts.get("seconds", 0),
+    )
+
+
+def _parse_valid_time_interval(valid_time: str) -> tuple[datetime, datetime]:
+    start_str, duration_str = valid_time.split("/")
+    start = datetime.fromisoformat(start_str)
+    return start, start + _parse_iso8601_duration(duration_str)
+
+
+async def fetch_wind_gusts_mph(grid_data_url: str) -> list[tuple[datetime, datetime, int]]:
+    """windGust is only exposed as a km/h time-series on forecastGridData, not on the hourly periods."""
+    try:
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT, headers=WEATHER_HEADERS, follow_redirects=True) as client:
+            response = await client.get(grid_data_url)
+            response.raise_for_status()
+            data = response.json()
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail="Unable to reach weather data provider") from exc
+
+    values = data.get("properties", {}).get("windGust", {}).get("values", [])
+    gusts = []
+    for entry in values:
+        if entry.get("value") is None:
+            continue
+        start, end = _parse_valid_time_interval(entry["validTime"])
+        gusts.append((start, end, round(entry["value"] / 1.60934)))
+    return gusts
+
+
+def find_wind_gust_mph(gusts: list[tuple[datetime, datetime, int]], when: datetime) -> int | None:
+    for start, end, mph in gusts:
+        if start <= when < end:
+            return mph
+    return None
+
+
+async def fetch_weather_periods(forecast_url: str) -> list[dict]:
+    try:
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT, headers=WEATHER_HEADERS, follow_redirects=True) as client:
+            response = await client.get(forecast_url)
+            response.raise_for_status()
+            data = response.json()
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail="Unable to reach weather data provider") from exc
+
+    return data.get("properties", {}).get("periods", [])
+
+
+frontend_path = Path(__file__).parent.parent / "frontend"
 
 
 async def fetch_tide_events(begin: date, end: date):
@@ -139,12 +257,70 @@ def height_at(when: datetime, events: list) -> float | None:
 
 
 def describe_current(signed_speed: float) -> dict:
-    epsilon = 0.05
+    epsilon = 0.25
     if signed_speed > epsilon:
         return {"direction": "Flood", "speed": round(signed_speed, 2)}
     if signed_speed < -epsilon:
         return {"direction": "Ebb", "speed": round(abs(signed_speed), 2)}
-    return {"direction": "Slack", "speed": 0.0}
+    return {"direction": "Slack", "speed": round(abs(signed_speed), 2)}
+
+
+@app.get("/api/weather")
+async def get_weather(day: date):
+    urls = await fetch_weather_forecast_urls()
+    periods = await fetch_weather_periods(urls["forecast"])
+
+    return {
+        "periods": [
+            {
+                "name": p["name"],
+                "startTime": p["startTime"],
+                "endTime": p["endTime"],
+                "isDaytime": p["isDaytime"],
+                "temperature": p["temperature"],
+                "temperatureUnit": p["temperatureUnit"],
+                "shortForecast": p["shortForecast"],
+                "windSpeed": p["windSpeed"],
+                "windDirection": p["windDirection"],
+                "icon": p["icon"],
+            }
+            for p in periods
+            if p["isDaytime"]
+            and (
+                datetime.fromisoformat(p["startTime"]).date() == day
+                or datetime.fromisoformat(p["endTime"]).date() == day
+            )
+        ]
+    }
+
+
+@app.get("/api/weather/hourly")
+async def get_weather_hourly(day: date):
+    urls = await fetch_weather_forecast_urls()
+    periods = await fetch_weather_periods(urls["forecastHourly"])
+    gusts = await fetch_wind_gusts_mph(urls["forecastGridData"]) if urls.get("forecastGridData") else []
+
+    return {
+        "periods": [
+            {
+                "startTime": p["startTime"],
+                "temperature": p["temperature"],
+                "temperatureUnit": p["temperatureUnit"],
+                "shortForecast": p["shortForecast"],
+                "windSpeed": p["windSpeed"],
+                "windGust": (
+                    f"{gust_mph} mph"
+                    if (gust_mph := find_wind_gust_mph(gusts, datetime.fromisoformat(p["startTime"]))) is not None
+                    else None
+                ),
+                "windDirection": p["windDirection"],
+                "icon": p["icon"],
+                "probabilityOfPrecipitation": (p.get("probabilityOfPrecipitation") or {}).get("value"),
+            }
+            for p in periods
+            if datetime.fromisoformat(p["startTime"]).date() == day
+        ]
+    }
 
 
 @app.get("/api/tides")
@@ -200,15 +376,28 @@ async def get_currents(
     return {"station": table["name"], "predictions": results}
 
 
+@app.get("/")
+@app.get("/index.html")
+async def frontend_index():
+    response = FileResponse(frontend_path / "index.html")
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+
 @app.middleware("http")
 async def add_security_headers(request, call_next):
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    response.headers["Clear-Site-Data"] = '"cache"'
     return response
 
 
 # Mount the frontend static files AFTER defining API routes
-frontend_path = Path(__file__).parent.parent / "frontend"
-app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="static")
+app.mount("/", NoCacheStaticFiles(directory=str(frontend_path), html=True), name="static")
