@@ -1,5 +1,6 @@
 # backend/main.py
 import math
+import os
 import re
 from datetime import date, datetime, timedelta
 import httpx
@@ -10,18 +11,25 @@ from pathlib import Path
 
 app = FastAPI()
 
+# Render sets this env var automatically on deploys; locally it's unset, so
+# dev servers can be told apart from the deployed instance without config.
+IS_PROD = os.environ.get("RENDER") == "true"
+
 
 class NoCacheStaticFiles(StaticFiles):
-    """Serve static files without conditional caching so root always reflects latest frontend."""
+    """In dev, disable caching so file edits are always reflected on refresh. In prod, use normal caching."""
 
     def is_not_modified(self, *args, **kwargs) -> bool:  # noqa: ANN002, ANN003
+        if IS_PROD:
+            return super().is_not_modified(*args, **kwargs)
         return False
 
     def file_response(self, *args, **kwargs):  # noqa: ANN002, ANN003
         response = super().file_response(*args, **kwargs)
-        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
+        if not IS_PROD:
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
         return response
 
 # Bound how much data a single request can generate/fetch, since this is a
@@ -380,9 +388,10 @@ async def get_currents(
 @app.get("/index.html")
 async def frontend_index():
     response = FileResponse(frontend_path / "index.html")
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
+    if not IS_PROD:
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
     return response
 
 
@@ -392,9 +401,10 @@ async def add_security_headers(request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
+    if not IS_PROD:
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
     return response
 
 
