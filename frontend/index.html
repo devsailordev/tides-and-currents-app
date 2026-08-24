@@ -393,9 +393,25 @@
         font-size: 10px;
       }
     }
+
+    #devBanner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 9999;
+      background: #111;
+      color: #0f0;
+      font-family: 'Consolas', monospace;
+      font-size: 12px;
+      padding: 4px 10px;
+      text-align: center;
+      display: none;
+    }
   </style>
 </head>
 <body>
+  <div id="devBanner"></div>
   <div class="container">
     <h1>🌊 Tides and Currents</h1>
 
@@ -470,6 +486,19 @@
   </div>
 
   <script>
+    // Only enable on localhost dev servers; never shown on the deployed Render site.
+    const IS_DEV_MODE = ["localhost", "127.0.0.1"].includes(location.hostname);
+    const devBanner = document.getElementById("devBanner");
+    const devFetchTimes = {};
+
+    function markDevFetch(label) {
+      if (!IS_DEV_MODE) return;
+      devFetchTimes[label] = new Date().toLocaleTimeString();
+      const parts = Object.entries(devFetchTimes).map(([key, time]) => `${key}: ${time}`);
+      devBanner.textContent = `🛠 DEV MODE — last fetched → ${parts.join("  |  ")}`;
+      devBanner.style.display = "block";
+    }
+
     function setDefaultDateAndTime() {
       const dateInput = document.getElementById("date");
       const currentTimeInput = document.getElementById("currentTime");
@@ -593,6 +622,7 @@
         }
 
         const data = await response.json();
+        markDevFetch("weather");
 
         if (!data.periods || data.periods.length === 0) {
           resultsDiv.innerHTML = '<div class="no-data">No weather forecast available for this date</div>';
@@ -639,6 +669,7 @@
         }
 
         const data = await response.json();
+        markDevFetch("hourly");
 
         if (!data.periods || data.periods.length === 0) {
           resultsDiv.innerHTML = '<div class="no-data">No hourly forecast available for this date</div>';
@@ -695,6 +726,7 @@
         }
         
         const data = await response.json();
+        markDevFetch("tides");
         
         if (!data.predictions || data.predictions.length === 0) {
           resultsDiv.innerHTML = '<tr><td colspan="3" class="no-data">No tide predictions found for this date</td></tr>';
@@ -743,6 +775,7 @@
         }
 
         const data = await response.json();
+        markDevFetch("currents");
 
         if (data.error) {
           throw new Error(data.error);
