@@ -307,10 +307,9 @@
     }
 
     .weather-date-note {
-      font-size: 13px;
-      font-weight: 500;
-      color: #666;
-      margin-left: 8px;
+      font-size: inherit;
+      font-weight: inherit;
+      color: inherit;
     }
 
     .hourly-weather-table .hourly-temp {
@@ -436,9 +435,9 @@
 <body>
   <div id="devBanner"></div>
   <div class="container">
-    <h1>🌊 Tides and Currents</h1>
+    <h1>Tides and Currents</h1>
 
-    <h1 style="margin-bottom: 10px; text-align: left; font-size: 18px;">Weather Forecast <span id="weatherDateLabel" class="weather-date-note"></span></h1>
+    <h1 style="margin-bottom: 10px; text-align: left; font-size: 18px;">Weather Forecast</h1>
     <div id="weatherError" class="error"></div>
     <div id="weatherLoading" class="loading">Loading weather forecast...</div>
     <div id="weatherResults" class="weather-cards">
@@ -478,7 +477,7 @@
       </table>
     </div>
 
-    <h1 style="margin-top: 40px; margin-bottom: 10px; text-align: left; font-size: 18px;">Currents (Pier 66)</h1>
+    <h1 style="margin-top: 40px; margin-bottom: 10px; text-align: left; font-size: 18px;">Predicted Currents (Pier 66)</h1>
 
     <div id="currentsError" class="error"></div>
     <div id="currentsLoading" class="loading">Loading current predictions...</div>
@@ -512,6 +511,7 @@
     const IS_DEV_MODE = ["localhost", "127.0.0.1"].includes(location.hostname);
     const devBanner = document.getElementById("devBanner");
     const devFetchTimes = {};
+    let weatherDateLabelText = "";
 
     function markDevFetch(label) {
       if (!IS_DEV_MODE) return;
@@ -545,7 +545,8 @@
     function setDateLabels(day) {
       const label = formatSelectedDateLabel(day);
       document.getElementById("selectedDateLabel").textContent = label;
-      document.getElementById("weatherDateLabel").textContent = `(${label})`;
+      const [year, month, date] = day.split("-").map(Number);
+      weatherDateLabelText = `(${new Date(year, month - 1, date).toLocaleDateString([], { year: "numeric", month: "long", day: "numeric" })})`;
     }
 
     function directionLabel(direction) {
@@ -785,7 +786,7 @@
             const tempStyle = tempBackgroundColor(period.temperature);
             return `
             <div class="weather-card">
-              <div class="weather-period">${period.name}</div>
+              <div class="weather-period">${period.name} <span class="weather-date-note">${weatherDateLabelText}</span></div>
               <img src="${localWeatherIcon(period.shortForecast, period.isDaytime)}" alt="${period.shortForecast}">
               <div class="weather-temp" style="background-color: ${tempStyle.background}; color: ${tempStyle.color}; border-radius: 6px; padding: 3px 6px; display: inline-block;">${period.temperature}&deg;${period.temperatureUnit}</div>
               <div class="weather-desc">${period.shortForecast}</div>
