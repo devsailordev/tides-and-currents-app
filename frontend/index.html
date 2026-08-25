@@ -233,9 +233,10 @@
     }
 
     .weather-card img {
+      display: block;
       width: 50px;
       height: 50px;
-      margin: 5px 0;
+      margin: 5px auto;
     }
 
     .weather-card .weather-period {
@@ -259,6 +260,12 @@
       font-size: 12px;
       color: #888;
       margin-top: 4px;
+    }
+
+    .weather-card .weather-wind .hourly-wind {
+      padding: 5px 10px;
+      border-radius: 8px;
+      font-size: 13px;
     }
 
     .hourly-weather-wrap {
@@ -292,6 +299,20 @@
       color: #333;
     }
 
+    .hourly-weather-table .hourly-icon {
+      width: 26px;
+      height: 26px;
+      display: block;
+      margin: 0 auto;
+    }
+
+    .weather-date-note {
+      font-size: 13px;
+      font-weight: 500;
+      color: #666;
+      margin-left: 8px;
+    }
+
     .hourly-weather-table .hourly-temp {
       font-size: 15px;
       font-weight: 700;
@@ -312,8 +333,10 @@
 
     .wind-arrow {
       display: inline-block;
-      font-size: 13px;
+      font-size: 16px;
+      font-weight: 700;
       line-height: 1;
+      -webkit-text-stroke: 0.5px currentColor;
     }
 
     .wind-calm {
@@ -415,7 +438,7 @@
   <div class="container">
     <h1>🌊 Tides and Currents</h1>
 
-    <h1 style="margin-bottom: 10px; text-align: left; font-size: 18px;">Weather Forecast</h1>
+    <h1 style="margin-bottom: 10px; text-align: left; font-size: 18px;">Weather Forecast <span id="weatherDateLabel" class="weather-date-note"></span></h1>
     <div id="weatherError" class="error"></div>
     <div id="weatherLoading" class="loading">Loading weather forecast...</div>
     <div id="weatherResults" class="weather-cards">
@@ -430,7 +453,6 @@
 
     <div class="form-group">
       <input id="date" type="date" autocomplete="off">
-      <input id="currentTime" type="time" value="08:00" autocomplete="off">
       <button onclick="getTidesAndCurrents()">Get Tides &amp; Currents</button>
     </div>
     
@@ -501,15 +523,12 @@
 
     function setDefaultDateAndTime() {
       const dateInput = document.getElementById("date");
-      const currentTimeInput = document.getElementById("currentTime");
       const now = new Date();
       const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
         .toISOString()
         .split("T")[0];
       dateInput.value = localDate;
-      currentTimeInput.value = "08:00";
-      const selectedDateLabel = document.getElementById("selectedDateLabel");
-      selectedDateLabel.textContent = formatSelectedDateLabel(localDate);
+      setDateLabels(localDate);
     }
 
     function formatSelectedDateLabel(day) {
@@ -523,26 +542,31 @@
       });
     }
 
+    function setDateLabels(day) {
+      const label = formatSelectedDateLabel(day);
+      document.getElementById("selectedDateLabel").textContent = label;
+      document.getElementById("weatherDateLabel").textContent = `(${label})`;
+    }
+
     function directionLabel(direction) {
       if (direction === "Flood") return '<span class="direction-flood">▲ Flood</span>';
       if (direction === "Ebb") return '<span class="direction-ebb">▼ Ebb</span>';
       return '<span class="direction-slack">● Slack</span>';
     }
 
-    function intensityLabel(direction, speed) {
+    function intensityLabel(direction, speed, maxSpeed) {
       const totalCubes = 10;
       if (direction === "Slack") {
         const emptyCubes = Array.from({ length: totalCubes }, () => '<span class="intensity-cube"></span>').join('');
-        return `<span class="intensity-cubes" title="${speed.toFixed(2)} kn">${emptyCubes}</span>`;
+        return `<span class="intensity-cubes" title="${speed.toFixed(1)} kn">${emptyCubes}</span>`;
       }
       const fillClass = direction === "Flood" ? "fill-flood" : "fill-ebb";
-      // scale against a 3.5 kn reference max and render filled cube segments
-      const maxSpeed = 3.5;
+      // scale against the station's actual max speed so max flood/ebb fills all cubes
       const filledCubes = Math.max(1, Math.min(totalCubes, Math.round((speed / maxSpeed) * totalCubes)));
       const cubes = Array.from({ length: totalCubes }, (_, i) =>
         `<span class="intensity-cube ${i < filledCubes ? fillClass : ''}"></span>`
       ).join('');
-      return `<span class="intensity-cubes" title="${speed.toFixed(2)} kn">${cubes}</span>`;
+      return `<span class="intensity-cubes" title="${speed.toFixed(1)} kn">${cubes}</span>`;
     }
 
     const WIND_DIRECTION_DEGREES = {
@@ -565,34 +589,164 @@
       return numbers.length ? Math.max(...numbers) : 0;
     }
 
-    function windSpeedClass(windSpeed) {
-      const mph = maxWindSpeedMph(windSpeed);
-      if (mph < 5) return "wind-calm";
-      if (mph < 15) return "wind-light";
-      if (mph < 25) return "wind-moderate";
-      if (mph < 35) return "wind-strong";
-      return "wind-severe";
+    function mphToKnots(mph) {
+      return mph * 0.868976;
+    }
+
+    function formatWindSpeedKnots(windSpeed) {
+      if (!windSpeed) return "";
+      return windSpeed
+        .replace(/\d+(?:\.\d+)?/g, n => Math.round(mphToKnots(Number(n))))
+        .replace(/mph/gi, "kt");
+    }
+
+    function formatWindGustKnots(windGust) {
+      if (!windGust) return "";
+      const mph = maxWindSpeedMph(windGust);
+      return `${Math.round(mphToKnots(mph))} kt`;
+    }
+
+    function hexToRgb(hex) {
+      const clean = hex.replace("#", "");
+      return {
+        r: parseInt(clean.slice(0, 2), 16),
+        g: parseInt(clean.slice(2, 4), 16),
+        b: parseInt(clean.slice(4, 6), 16)
+      };
+    }
+
+    function mixColor(a, b, t) {
+      return {
+        r: Math.round(a.r + (b.r - a.r) * t),
+        g: Math.round(a.g + (b.g - a.g) * t),
+        b: Math.round(a.b + (b.b - a.b) * t)
+      };
+    }
+
+    function predictWindColor(knots) {
+      const stops = [
+        { k: 0, c: "#dbeafe" },
+        { k: 5, c: "#7dd3fc" },
+        { k: 10, c: "#22c55e" },
+        { k: 15, c: "#fde047" },
+        { k: 20, c: "#fb923c" },
+        { k: 25, c: "#ef4444" },
+        { k: 30, c: "#d946ef" },
+        { k: 40, c: "#7e22ce" }
+      ];
+
+      const clamped = Math.max(stops[0].k, Math.min(knots, stops[stops.length - 1].k));
+      for (let i = 0; i < stops.length - 1; i += 1) {
+        const left = stops[i];
+        const right = stops[i + 1];
+        if (clamped >= left.k && clamped <= right.k) {
+          const ratio = (clamped - left.k) / (right.k - left.k || 1);
+          return mixColor(hexToRgb(left.c), hexToRgb(right.c), ratio);
+        }
+      }
+
+      return hexToRgb(stops[stops.length - 1].c);
+    }
+
+    function windPillStyle(windSpeed) {
+      const knots = mphToKnots(maxWindSpeedMph(windSpeed));
+      const { r, g, b } = predictWindColor(knots);
+      const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+      const textColor = luminance > 0.62 ? "#1b1b1b" : "#ffffff";
+      return `background: rgb(${r}, ${g}, ${b}); color: ${textColor};`;
     }
 
     function windLabel(windSpeed, windDirection, windGust) {
-      const gustText = windGust ? ` (G ${maxWindSpeedMph(windGust)})` : "";
-      return `<span class="hourly-wind ${windSpeedClass(windSpeed)}">${windArrow(windDirection)} ${windSpeed}${gustText}</span>`;
+      const gustText = windGust ? ` (G ${formatWindGustKnots(windGust)})` : "";
+      const speedKnots = formatWindSpeedKnots(windSpeed);
+      return `<span class="hourly-wind" style="${windPillStyle(windSpeed)}">${windArrow(windDirection)} ${speedKnots}${gustText}</span>`;
     }
 
-    // Quantizes to 5-degree steps (light pink -> dark red) so the color
-    // visibly changes every 5 degF, over a 35-105 degF range.
+    const LOCAL_WEATHER_ICON_BASE = "/resources/amcharts_weather_icons_1.0.0/animated";
+
+    function localWeatherIcon(shortForecast, isDaytime = true) {
+      const text = (shortForecast || "").toLowerCase();
+
+      if (/(thunder|t-?storm|storm)/.test(text)) {
+        return `${LOCAL_WEATHER_ICON_BASE}/thunder.svg`;
+      }
+
+      if (/(snow|sleet|blizzard|flurr)/.test(text)) {
+        return `${LOCAL_WEATHER_ICON_BASE}/${isDaytime ? "snowy-2" : "snowy-4"}.svg`;
+      }
+
+      if (/(rain|shower|drizzle)/.test(text)) {
+        if (/(isolated|slight|chance|scattered)/.test(text)) {
+          return `${LOCAL_WEATHER_ICON_BASE}/rainy-1.svg`;
+        }
+        if (/(heavy|downpour)/.test(text)) {
+          return `${LOCAL_WEATHER_ICON_BASE}/rainy-6.svg`;
+        }
+        return `${LOCAL_WEATHER_ICON_BASE}/rainy-4.svg`;
+      }
+
+      if (/(fog|haze|mist|smoke)/.test(text)) {
+        return `${LOCAL_WEATHER_ICON_BASE}/cloudy.svg`;
+      }
+
+      if (/(cloud|overcast)/.test(text)) {
+        if (/(partly|mostly clear|mostly sunny|partly sunny)/.test(text)) {
+          return `${LOCAL_WEATHER_ICON_BASE}/${isDaytime ? "cloudy-day-2" : "cloudy-night-2"}.svg`;
+        }
+        return `${LOCAL_WEATHER_ICON_BASE}/${isDaytime ? "cloudy-day-3" : "cloudy-night-3"}.svg`;
+      }
+
+      if (/(sunny|clear)/.test(text)) {
+        return `${LOCAL_WEATHER_ICON_BASE}/${isDaytime ? "day" : "night"}.svg`;
+      }
+
+      return `${LOCAL_WEATHER_ICON_BASE}/${isDaytime ? "day" : "night"}.svg`;
+    }
+
+    // PredictWind-style progressive temperature palette (cold blue -> hot red/purple).
     function tempBackgroundColor(temperature) {
-      const minTemp = 35;
-      const maxTemp = 105;
-      const bandTemp = Math.round(temperature / 5) * 5;
-      const ratio = Math.max(0, Math.min(1, (bandTemp - minTemp) / (maxTemp - minTemp)));
-      const lightStart = [255, 245, 240]; // #fff5f0
-      const darkEnd = [153, 0, 13]; // #99000d
-      const [r, g, b] = lightStart.map((channel, i) => Math.round(channel + (darkEnd[i] - channel) * ratio));
-      return { background: `rgb(${r}, ${g}, ${b})`, color: ratio > 0.55 ? "#fff" : "#333" };
+      const tempF = Number(temperature);
+      if (!Number.isFinite(tempF)) {
+        return { background: "#eef2ff", color: "#333" };
+      }
+
+      const stops = [
+        { t: -10, c: "#312e81" },
+        { t: 0, c: "#1d4ed8" },
+        { t: 15, c: "#0ea5e9" },
+        { t: 32, c: "#22c55e" },
+        { t: 50, c: "#84cc16" },
+        { t: 68, c: "#fde047" },
+        { t: 80, c: "#fb923c" },
+        { t: 92, c: "#ef4444" },
+        { t: 104, c: "#be123c" }
+      ];
+
+      const clamped = Math.max(stops[0].t, Math.min(tempF, stops[stops.length - 1].t));
+      let color = hexToRgb(stops[stops.length - 1].c);
+
+      for (let i = 0; i < stops.length - 1; i += 1) {
+        const left = stops[i];
+        const right = stops[i + 1];
+        if (clamped >= left.t && clamped <= right.t) {
+          const ratio = (clamped - left.t) / (right.t - left.t || 1);
+          color = mixColor(hexToRgb(left.c), hexToRgb(right.c), ratio);
+          break;
+        }
+      }
+
+      const luminance = (0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b) / 255;
+      return {
+        background: `rgb(${color.r}, ${color.g}, ${color.b})`,
+        color: luminance > 0.6 ? "#1b1b1b" : "#ffffff"
+      };
     }
 
     function getTidesAndCurrents() {
+      const day = document.getElementById("date").value;
+      if (day) {
+        setDateLabels(day);
+      }
       getWeather();
       getWeatherHourly();
       getTides();
@@ -627,15 +781,18 @@
         if (!data.periods || data.periods.length === 0) {
           resultsDiv.innerHTML = '<div class="no-data">No weather forecast available for this date</div>';
         } else {
-          resultsDiv.innerHTML = data.periods.map(period => `
+          resultsDiv.innerHTML = data.periods.map(period => {
+            const tempStyle = tempBackgroundColor(period.temperature);
+            return `
             <div class="weather-card">
               <div class="weather-period">${period.name}</div>
-              <img src="${period.icon}" alt="${period.shortForecast}">
-              <div class="weather-temp">${period.temperature}&deg;${period.temperatureUnit}</div>
+              <img src="${localWeatherIcon(period.shortForecast, period.isDaytime)}" alt="${period.shortForecast}">
+              <div class="weather-temp" style="background-color: ${tempStyle.background}; color: ${tempStyle.color}; border-radius: 6px; padding: 3px 6px; display: inline-block;">${period.temperature}&deg;${period.temperatureUnit}</div>
               <div class="weather-desc">${period.shortForecast}</div>
               <div class="weather-wind">${windLabel(period.windSpeed, period.windDirection)}</div>
             </div>
-          `).join("");
+          `;
+          }).join("");
         }
       } catch (error) {
         errorDiv.textContent = `Error: ${error.message}`;
@@ -676,6 +833,11 @@
         } else {
           const periods = data.periods;
           const timeRow = periods.map(p => `<td class="hourly-time">${new Date(p.startTime).toLocaleTimeString([], { hour: '2-digit' })}</td>`).join("");
+          const iconRow = periods.map(p => {
+            const hour = new Date(p.startTime).getHours();
+            const isDaytime = p.isDaytime ?? (hour >= 6 && hour < 18);
+            return `<td><img class="hourly-icon" src="${localWeatherIcon(p.shortForecast, isDaytime)}" alt="${p.shortForecast}" title="${p.shortForecast}"></td>`;
+          }).join("");
           const tempRow = periods.map(p => {
             const { background, color } = tempBackgroundColor(p.temperature);
             return `<td class="hourly-temp" style="background-color: ${background}; color: ${color}">${p.temperature}&deg;</td>`;
@@ -687,6 +849,7 @@
             <table class="hourly-weather-table">
               <tbody>
                 <tr>${timeRow}</tr>
+                <tr>${iconRow}</tr>
                 <tr>${tempRow}</tr>
                 <tr>${windRow}</tr>
                 <tr>${precipRow}</tr>
@@ -748,16 +911,18 @@
       }
     }
 
+    const CURRENTS_START_TIME = "07:00";
+    const CURRENTS_HOURS = 14; // 7am to 9pm
+
     async function getCurrents() {
       const day = document.getElementById("date").value;
-      const startTime = document.getElementById("currentTime").value;
       const errorDiv = document.getElementById("currentsError");
       const loadingDiv = document.getElementById("currentsLoading");
       const resultsDiv = document.getElementById("currentsResults");
       const selectedDateLabel = document.getElementById("selectedDateLabel");
 
-      if (!day || !startTime) {
-        errorDiv.textContent = "Please select a date and start time";
+      if (!day) {
+        errorDiv.textContent = "Please select a date";
         errorDiv.classList.add("show");
         return;
       }
@@ -768,7 +933,7 @@
       loadingDiv.classList.add("show");
 
       try {
-        const response = await fetch(`/api/currents?day=${day}&start_time=${startTime}`);
+        const response = await fetch(`/api/currents?day=${day}&start_time=${CURRENTS_START_TIME}&hours=${CURRENTS_HOURS}`);
 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -788,7 +953,7 @@
             <tr>
               <td>${new Date(entry.time.replace(" ", "T")).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
               <td>${directionLabel(entry.direction)}</td>
-              <td><span class="speed-intensity">${entry.speed.toFixed(2)} ${intensityLabel(entry.direction, entry.speed)}</span></td>
+              <td><span class="speed-intensity">${entry.speed.toFixed(1)} ${intensityLabel(entry.direction, entry.speed, data.maxSpeed)}</span></td>
             </tr>
           `).join("");
         }
@@ -804,17 +969,15 @@
     document.addEventListener("DOMContentLoaded", () => {
       setDefaultDateAndTime();
       const dateInput = document.getElementById("date");
-      const selectedDateLabel = document.getElementById("selectedDateLabel");
       dateInput.addEventListener("change", () => {
         if (dateInput.value) {
-          selectedDateLabel.textContent = formatSelectedDateLabel(dateInput.value);
+          setDateLabels(dateInput.value);
+          getTidesAndCurrents();
         }
       });
-      getWeather();
-      getWeatherHourly();
+      getTidesAndCurrents();
     });
     window.addEventListener("pageshow", setDefaultDateAndTime);
-    setDefaultDateAndTime();
   </script>
 </body>
 </html>

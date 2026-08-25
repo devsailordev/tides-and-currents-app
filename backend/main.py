@@ -149,6 +149,7 @@ async def fetch_weather_periods(forecast_url: str) -> list[dict]:
 
 
 frontend_path = Path(__file__).parent.parent / "frontend"
+resources_path = Path(__file__).parent.parent / "resources"
 
 
 async def fetch_tide_events(begin: date, end: date):
@@ -278,6 +279,17 @@ async def get_weather(day: date):
     urls = await fetch_weather_forecast_urls()
     periods = await fetch_weather_periods(urls["forecast"])
 
+    matching_periods = [
+        p
+        for p in periods
+        if (
+            datetime.fromisoformat(p["startTime"]).date() == day
+            or datetime.fromisoformat(p["endTime"]).date() == day
+        )
+    ]
+    daytime_periods = [p for p in matching_periods if p.get("isDaytime")]
+    selected_periods = daytime_periods if daytime_periods else matching_periods
+
     return {
         "periods": [
             {
@@ -292,12 +304,7 @@ async def get_weather(day: date):
                 "windDirection": p["windDirection"],
                 "icon": p["icon"],
             }
-            for p in periods
-            if p["isDaytime"]
-            and (
-                datetime.fromisoformat(p["startTime"]).date() == day
-                or datetime.fromisoformat(p["endTime"]).date() == day
-            )
+            for p in selected_periods
         ]
     }
 
@@ -312,6 +319,7 @@ async def get_weather_hourly(day: date):
         "periods": [
             {
                 "startTime": p["startTime"],
+                "isDaytime": p.get("isDaytime"),
                 "temperature": p["temperature"],
                 "temperatureUnit": p["temperatureUnit"],
                 "shortForecast": p["shortForecast"],
@@ -381,7 +389,8 @@ async def get_currents(
         entry["height"] = round(height, 2) if height is not None else None
         results.append(entry)
 
-    return {"station": table["name"], "predictions": results}
+    max_speed = max(abs(v) for v in table["after_high"] + table["after_low"])
+    return {"station": table["name"], "maxSpeed": max_speed, "predictions": results}
 
 
 @app.get("/")
@@ -409,4 +418,5 @@ async def add_security_headers(request, call_next):
 
 
 # Mount the frontend static files AFTER defining API routes
+app.mount("/resources", NoCacheStaticFiles(directory=str(resources_path)), name="resources")
 app.mount("/", NoCacheStaticFiles(directory=str(frontend_path), html=True), name="static")
